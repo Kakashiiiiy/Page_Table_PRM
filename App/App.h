@@ -54,6 +54,13 @@
 
 extern sgx_enclave_id_t global_eid;    /* global enclave id */
 
+struct sgx_swapping
+{
+	unsigned long first_addr;
+	unsigned long second_addr;
+};
+
+
 #if defined(__cplusplus)
 extern "C" {
 #endif

@@ -55,7 +55,7 @@ int printf(const char *fmt, ...)
 
 void dummyalloc()
 {
-    long long size = 1ll << 10;
+    long long size = 1ll << 12;
     buffer = malloc(size);
     if (buffer == NULL)
     {

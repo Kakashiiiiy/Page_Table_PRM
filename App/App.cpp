@@ -173,19 +173,23 @@ int SGX_CDECL main(int argc, char *argv[])
         getchar();
         return -1;
     }
-
-    dummyalloc(global_eid);
-
+    struct sgx_swapping firstarg;
     unsigned long int *pages;
-
-    get_pages_malloc(global_eid, &pages);
-
-    pages = (unsigned long int *)(((unsigned long int)pages & (~4096ll + 1)));
-    printf("malloc virt addr is %lx\n", pages);
-
     int sgxfd = open_sgx_driver();
 
-    int ret = ioctl(sgxfd, SGX_IOC_EVICT_PAGES, &pages);
+    dummyalloc(global_eid);
+    get_pages_malloc(global_eid, &pages);
+    long int tmp = (((unsigned long int)pages & (~4096ll + 1)));
+    printf("malloc virt addr is %lx\n", tmp);
+    firstarg.first_addr = tmp;
+
+    dummyalloc(global_eid);
+    get_pages_malloc(global_eid, &pages);
+    tmp = (((unsigned long int)pages & (~4096ll + 1)));
+    printf("malloc virt addr is %lx\n", tmp);
+    firstarg.second_addr = tmp;
+
+    int ret = ioctl(sgxfd, SGX_IOC_EVICT_PAGES, &firstarg);
     printf("ioctl return = %d\n", ret);
 
     /* Destroy the enclave */
