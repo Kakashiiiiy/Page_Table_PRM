@@ -38,6 +38,7 @@
 #include <string.h>
 
 void *buffer;
+unsigned long long size = 8*1024;
 /*
  * printf:
  *   Invokes OCALL to display the enclave buffer to the terminal.
@@ -53,23 +54,31 @@ int printf(const char *fmt, ...)
     return (int)strnlen(buf, BUFSIZ - 1) + 1;
 }
 
-void dummyalloc()
+void dummyalloc(long addr)
 {
-    long long size = 1ll << 12;
     buffer = malloc(size);
     if (buffer == NULL)
     {
         printf("failed to allocate\n");
+        return;
     }
-    else
+    for (size_t i = 0; i < size/8; i++)
     {
-        printf("alloc successful \n");
+        ((long *)buffer)[i] = addr;
     }
-    // memset(buffer, 0xf5, size);
     return;
 }
 
-unsigned long *get_pages_malloc()
+void deadlock(){
+    while(1){
+        for (size_t i = 0; i < size; i++)
+        {
+            ((char *)buffer)[i] = 0;
+        }
+    }
+}
+
+unsigned long *get_page_malloc()
 {
     return (unsigned long int *)buffer;
 }

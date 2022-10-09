@@ -34,7 +34,18 @@
 #include <assert.h>
 #include <fcntl.h>
 #include <string.h>
+#include <unistd.h>
 #include <sys/ioctl.h>
+#include <stdio.h>
+#include <sys/mman.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <stdlib.h>
+#include <time.h>
+#include <string.h>
+
+#include "../ptedit_header.h"
 
 #include <unistd.h>
 #include <pwd.h>
@@ -161,6 +172,8 @@ void ocall_print_string(const char *str)
     printf("%s\n", str);
 }
 
+#define USE_SGX 0
+
 /* Application entry */
 int SGX_CDECL main(int argc, char *argv[])
 {
@@ -173,24 +186,64 @@ int SGX_CDECL main(int argc, char *argv[])
         getchar();
         return -1;
     }
-    struct sgx_swapping firstarg;
-    unsigned long int *pages;
-    int sgxfd = open_sgx_driver();
+    if (ptedit_init())
+    {
+        printf("Error: Could not initalize PTEditor, did you load the kernel module?\n");
+        return 1;
+    }
+    unsigned char *addr = (unsigned char *)mmap(NULL, 4 * 1024, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+    memset(addr, 0x42, 4 * 1024);
+    addr[9] = '\n';
+    addr[10] = 0;
+    ptedit_entry_t entry = ptedit_resolve(addr, 0);
+    long oldPmd = entry.pmd;
+    printf("old PMD %llx\n", entry.pmd);
 
-    dummyalloc(global_eid);
-    get_pages_malloc(global_eid, &pages);
-    long int tmp = (((unsigned long int)pages & (~4096ll + 1)));
-    printf("malloc virt addr is %lx\n", tmp);
-    firstarg.first_addr = tmp;
+    long int sgx_addr;
+    if (USE_SGX)
+    {
+        unsigned long int *pages;
+        dummyalloc(global_eid, entry.pte);
+        get_page_malloc(global_eid, &pages);
+        sgx_addr = (long int)pages;
+    }
+    else
+    {
 
-    dummyalloc(global_eid);
-    get_pages_malloc(global_eid, &pages);
-    tmp = (((unsigned long int)pages & (~4096ll + 1)));
-    printf("malloc virt addr is %lx\n", tmp);
-    firstarg.second_addr = tmp;
+        unsigned char *non_sgx_test = (unsigned char *)malloc(8192);
+        memset(non_sgx_test, 0x0, 8 * 1024);
+        for (size_t i = 0; i < 8192 / 8; i++)
+        {
+            ((long *)non_sgx_test)[i] = entry.pte;
+        }
+        sgx_addr = (long int)non_sgx_test;
+    }
+    sgx_addr += 0x1000;
+    printf("new PMD virt addr: %lx\n", sgx_addr);
+    ptedit_entry_t sgx_entry = ptedit_resolve((void *)sgx_addr, 0);
+    printf("new PMD phys addr: %lx\n", sgx_entry.pte);
+    sgx_entry.pte &= ~(1ull << 63);
+    sgx_entry.pte &= ~(0xfff);
 
-    int ret = ioctl(sgxfd, SGX_IOC_EVICT_PAGES, &firstarg);
-    printf("ioctl return = %d\n", ret);
+    ptedit_entry_t vm = ptedit_resolve(addr, 0);
+    vm.pmd = (entry.pmd & 0xfff) | sgx_entry.pte;
+    printf("new modified PMD entry: %lx\n", vm.pmd);
+    vm.valid = PTEDIT_VALID_MASK_PMD;
+    ptedit_update(addr, 0, &vm);
+
+    ((unsigned char volatile *)addr)[0] = addr[0];
+    printf("addr values: %s\n", addr);
+    vm = ptedit_resolve(addr, 0);
+    printf("Switching PMD back from %lx to %lx\n", vm.pmd, oldPmd);
+    vm.pmd = oldPmd;
+    vm.valid = PTEDIT_VALID_MASK_PMD;
+    ptedit_update(addr, 0, &vm);
+    printf("addr values: %s\n", addr);
+
+    munmap(addr, 4096);
+    ptedit_cleanup();
+
+    // int sgxfd = open_sgx_driver();
 
     /* Destroy the enclave */
     sgx_destroy_enclave(global_eid);

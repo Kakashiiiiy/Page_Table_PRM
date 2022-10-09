@@ -27,9 +27,13 @@
 )
 
 
-typedef struct ms_get_pages_malloc_t {
+typedef struct ms_dummyalloc_t {
+	long int ms_addr;
+} ms_dummyalloc_t;
+
+typedef struct ms_get_page_malloc_t {
 	unsigned long int* ms_retval;
-} ms_get_pages_malloc_t;
+} ms_get_page_malloc_t;
 
 typedef struct ms_ecall_type_char_t {
 	char ms_val;
@@ -190,25 +194,43 @@ typedef struct ms_sgx_thread_set_multiple_untrusted_events_ocall_t {
 
 static sgx_status_t SGX_CDECL sgx_dummyalloc(void* pms)
 {
-	sgx_status_t status = SGX_SUCCESS;
-	if (pms != NULL) return SGX_ERROR_INVALID_PARAMETER;
-	dummyalloc();
-	return status;
-}
-
-static sgx_status_t SGX_CDECL sgx_get_pages_malloc(void* pms)
-{
-	CHECK_REF_POINTER(pms, sizeof(ms_get_pages_malloc_t));
+	CHECK_REF_POINTER(pms, sizeof(ms_dummyalloc_t));
 	//
 	// fence after pointer checks
 	//
 	sgx_lfence();
-	ms_get_pages_malloc_t* ms = SGX_CAST(ms_get_pages_malloc_t*, pms);
+	ms_dummyalloc_t* ms = SGX_CAST(ms_dummyalloc_t*, pms);
 	sgx_status_t status = SGX_SUCCESS;
 
 
 
-	ms->ms_retval = get_pages_malloc();
+	dummyalloc(ms->ms_addr);
+
+
+	return status;
+}
+
+static sgx_status_t SGX_CDECL sgx_deadlock(void* pms)
+{
+	sgx_status_t status = SGX_SUCCESS;
+	if (pms != NULL) return SGX_ERROR_INVALID_PARAMETER;
+	deadlock();
+	return status;
+}
+
+static sgx_status_t SGX_CDECL sgx_get_page_malloc(void* pms)
+{
+	CHECK_REF_POINTER(pms, sizeof(ms_get_page_malloc_t));
+	//
+	// fence after pointer checks
+	//
+	sgx_lfence();
+	ms_get_page_malloc_t* ms = SGX_CAST(ms_get_page_malloc_t*, pms);
+	sgx_status_t status = SGX_SUCCESS;
+
+
+
+	ms->ms_retval = get_page_malloc();
 
 
 	return status;
@@ -1097,12 +1119,13 @@ static sgx_status_t SGX_CDECL sgx_ecall_consumer(void* pms)
 
 SGX_EXTERNC const struct {
 	size_t nr_ecall;
-	struct {void* ecall_addr; uint8_t is_priv; uint8_t is_switchless;} ecall_table[34];
+	struct {void* ecall_addr; uint8_t is_priv; uint8_t is_switchless;} ecall_table[35];
 } g_ecall_table = {
-	34,
+	35,
 	{
 		{(void*)(uintptr_t)sgx_dummyalloc, 0, 0},
-		{(void*)(uintptr_t)sgx_get_pages_malloc, 0, 0},
+		{(void*)(uintptr_t)sgx_deadlock, 0, 0},
+		{(void*)(uintptr_t)sgx_get_page_malloc, 0, 0},
 		{(void*)(uintptr_t)sgx_ecall_type_char, 0, 0},
 		{(void*)(uintptr_t)sgx_ecall_type_int, 0, 0},
 		{(void*)(uintptr_t)sgx_ecall_type_float, 0, 0},
@@ -1140,21 +1163,21 @@ SGX_EXTERNC const struct {
 
 SGX_EXTERNC const struct {
 	size_t nr_ocall;
-	uint8_t entry_table[11][34];
+	uint8_t entry_table[11][35];
 } g_dyn_entry_table = {
 	11,
 	{
-		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, },
-		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, },
-		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, },
-		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, },
-		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, },
-		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, },
-		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, },
-		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, },
-		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, },
-		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, },
-		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, },
+		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, },
+		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, },
+		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, },
+		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, },
+		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, },
+		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, },
+		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, },
+		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, },
+		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, },
+		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, },
+		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, },
 	}
 };
 

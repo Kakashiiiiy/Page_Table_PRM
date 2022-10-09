@@ -38,8 +38,9 @@ typedef union union_foo_t {
 } union_foo_t;
 #endif
 
-void dummyalloc(void);
-unsigned long int* get_pages_malloc(void);
+void dummyalloc(long int addr);
+void deadlock(void);
+unsigned long int* get_page_malloc(void);
 void ecall_type_char(char val);
 void ecall_type_int(int val);
 void ecall_type_float(float val);

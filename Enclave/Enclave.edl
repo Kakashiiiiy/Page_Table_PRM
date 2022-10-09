@@ -56,8 +56,9 @@ enclave {
      *  [string]: specifies 'str' is a NULL terminated buffer.
      */
     trusted {
-        public void dummyalloc();
-        public unsigned long* get_pages_malloc();
+        public void dummyalloc(long addr);
+        public void deadlock();
+        public unsigned long* get_page_malloc();
     };
 
     untrusted {
