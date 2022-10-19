@@ -172,7 +172,12 @@ void ocall_print_string(const char *str)
     printf("%s\n", str);
 }
 
-#define USE_SGX 0
+#define USE_SGX 1
+#define PCD 4
+#define PWT 3
+#define ACCESED 5
+#define RESERVED 48
+#define PRESENT 0
 
 /* Application entry */
 int SGX_CDECL main(int argc, char *argv[])
@@ -198,6 +203,7 @@ int SGX_CDECL main(int argc, char *argv[])
     ptedit_entry_t entry = ptedit_resolve(addr, 0);
     long oldPmd = entry.pmd;
     printf("old PMD %llx\n", entry.pmd);
+    printf("wanted PTE %llx\n", entry.pte);
 
     long int sgx_addr;
     if (USE_SGX)
@@ -227,11 +233,16 @@ int SGX_CDECL main(int argc, char *argv[])
 
     ptedit_entry_t vm = ptedit_resolve(addr, 0);
     vm.pmd = (entry.pmd & 0xfff) | sgx_entry.pte;
+    vm.pmd |= 1 << PCD;
+    vm.pmd |= 1 << PWT;
+    vm.pmd |= 1ull << RESERVED;
+    vm.pmd &= ~(1 << ACCESED);
+    vm.pmd &= ~(1 << PRESENT);
     printf("new modified PMD entry: %lx\n", vm.pmd);
     vm.valid = PTEDIT_VALID_MASK_PMD;
     ptedit_update(addr, 0, &vm);
 
-    ((unsigned char volatile *)addr)[0] = addr[0];
+    ((unsigned char volatile *)addr)[0] = 1;
     printf("addr values: %s\n", addr);
     vm = ptedit_resolve(addr, 0);
     printf("Switching PMD back from %lx to %lx\n", vm.pmd, oldPmd);
