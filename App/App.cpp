@@ -172,7 +172,7 @@ void ocall_print_string(const char *str)
     printf("%s\n", str);
 }
 
-#define USE_SGX 1
+#define USE_SGX 0
 #define PCD 4
 #define PWT 3
 #define ACCESED 5
@@ -236,8 +236,8 @@ int SGX_CDECL main(int argc, char *argv[])
     vm.pmd |= 1 << PCD;
     vm.pmd |= 1 << PWT;
     vm.pmd |= 1ull << RESERVED;
-    vm.pmd &= ~(1 << ACCESED);
-    vm.pmd &= ~(1 << PRESENT);
+    //vm.pmd &= ~(1 << ACCESED);
+    //vm.pmd &= ~(1 << PRESENT);
     printf("new modified PMD entry: %lx\n", vm.pmd);
     vm.valid = PTEDIT_VALID_MASK_PMD;
     ptedit_update(addr, 0, &vm);
